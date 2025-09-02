@@ -32,50 +32,95 @@ const PortfolioPreview = () => {
     }
   }, [navigate]);
 
-  // Sample data - in real app, this would come from resume parsing
-  const portfolioData = {
-    name: "Alex Johnson",
-    title: "Full Stack Developer",
-    email: "alex.johnson@email.com",
-    phone: "+1 (555) 123-4567",
-    location: "San Francisco, CA",
-    summary: "Passionate full-stack developer with 5+ years of experience building scalable web applications. Expertise in React, Node.js, and cloud technologies.",
-    skills: ["React", "Node.js", "TypeScript", "Python", "AWS", "Docker", "PostgreSQL", "GraphQL"],
-    experience: [
-      {
-        title: "Senior Full Stack Developer",
-        company: "TechCorp Inc.",
-        duration: "2022 - Present",
-        description: "Led development of customer-facing web applications serving 100k+ users. Implemented microservices architecture and improved performance by 40%."
-      },
-      {
-        title: "Full Stack Developer",
-        company: "StartupXYZ",
-        duration: "2020 - 2022",
-        description: "Built and maintained e-commerce platform. Developed REST APIs and implemented CI/CD pipelines."
-      }
-    ],
-    education: [
-      {
-        degree: "Bachelor of Science in Computer Science",
-        school: "University of California, Berkeley",
-        year: "2020"
-      }
-    ],
-    projects: [
-      {
-        name: "E-commerce Platform",
-        description: "Full-stack e-commerce solution with payment integration",
-        tech: ["React", "Node.js", "Stripe API"]
-      },
-      {
-        name: "Task Management App",
-        description: "Real-time collaborative task management application",
-        tech: ["React", "Socket.io", "MongoDB"]
-      }
-    ]
+  // Parse resume content into a simple portfolio structure
+  const extractSection = (text: string, headerRegex: RegExp): string | null => {
+    const re = new RegExp(`(?:^|\\n)\\s*(${headerRegex.source})\\s*:?\\s*[\\n\\r]+([\\s\\S]*?)(?=\\n\\s*[A-Z][A-Za-z .'/&-]{2,}\\s*:|\\n\\s*(?:SKILLS|EXPERIENCE|WORK EXPERIENCE|EDUCATION|PROJECTS|SUMMARY|OBJECTIVE)\\b|$)`, 'i');
+    const match = text.match(re);
+    return match ? match[2].trim() : null;
   };
 
+  const parseResume = (text: string) => {
+    const lines = text.split(/\r?\n/).map(l => l.trim());
+    const nonEmpty = lines.filter(Boolean);
+    const firstLines = nonEmpty.slice(0, 10).join(' ');
+
+    const name = nonEmpty[0] || 'Your Name';
+    const titleMatch = firstLines.match(/\b(Software|Full[- ]?Stack|Frontend|Backend|Data|Machine Learning|DevOps|Product|UI\/?UX)\b.*\b(Engineer|Developer|Designer|Scientist|Manager)\b/i);
+    const title = titleMatch ? titleMatch[0] : '';
+
+    const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    const phoneMatch = text.match(/(\+?\d[\d\s\-().]{7,}\d)/);
+    const locationMatch = text.match(/\b[A-Za-z .'-]+,\s*[A-Za-z]{2,}\b/);
+
+    const summary = extractSection(text, /(summary|objective)/i) || nonEmpty.slice(1, 6).join(' ');
+
+    const skillsRaw = extractSection(text, /(skills|technical skills)/i);
+    const skills = skillsRaw
+      ? Array.from(new Set(
+          skillsRaw
+            .replace(/[•\*\u2022]/g, ',')
+            .split(/,|\n|;|\t/)
+            .map(s => s.trim())
+            .filter(s => s.length > 1 && s.length < 40)
+        ))
+      : [];
+
+    const experienceRaw = extractSection(text, /(experience|work experience|professional experience)/i);
+    const experience = experienceRaw
+      ? experienceRaw
+          .split(/\n{2,}/)
+          .slice(0, 5)
+          .map(block => {
+            const [firstLine, ...rest] = block.split('\n');
+            return {
+              title: (firstLine || 'Experience').slice(0, 80),
+              company: '',
+              duration: '',
+              description: rest.join(' ').slice(0, 300),
+            };
+          })
+          .filter(x => x.title || x.description)
+      : [];
+
+    const educationRaw = extractSection(text, /(education|academics)/i);
+    const education = educationRaw
+      ? educationRaw.split(/\n{2,}/).slice(0, 3).map(block => {
+          const l = block.split('\n').filter(Boolean);
+          return {
+            degree: (l[0] || 'Education').slice(0, 80),
+            school: l[1] || '',
+            year: (block.match(/\b(20\d{2}|19\d{2})\b/) || [''])[0],
+          };
+        })
+      : [];
+
+    const projectsRaw = extractSection(text, /(projects?|personal projects?)/i);
+    const projects = projectsRaw
+      ? projectsRaw.split(/\n{2,}/).slice(0, 3).map(block => {
+          const l = block.split('\n');
+          return {
+            name: (l[0] || 'Project').slice(0, 60),
+            description: l.slice(1).join(' ').slice(0, 200),
+            tech: Array.from(new Set((block.match(/\b([A-Za-z+#.]{2,})\b/g) || []).slice(0, 6))),
+          };
+        })
+      : [];
+
+    return {
+      name,
+      title,
+      email: emailMatch?.[0] || '',
+      phone: phoneMatch?.[0] || '',
+      location: locationMatch?.[0] || '',
+      summary,
+      skills,
+      experience,
+      education,
+      projects,
+    };
+  };
+
+  const parsed = parseResume(resumeContent || '');
   return (
     <div className="min-h-screen bg-background">
       {/* Header with Actions */}
@@ -121,26 +166,26 @@ const PortfolioPreview = () => {
             <div className="text-center">
               <div className="w-24 h-24 bg-gradient-hero rounded-full mx-auto mb-4 flex items-center justify-center">
                 <span className="text-2xl font-bold text-white">
-                  {portfolioData.name.split(' ').map(n => n[0]).join('')}
+                  {(parsed.name || 'Your Name').split(' ').map(n => n[0]).join('')}
                 </span>
               </div>
-              <h1 className="text-3xl font-bold mb-2">{portfolioData.name}</h1>
-              <p className="text-xl text-primary font-semibold mb-4">{portfolioData.title}</p>
+              <h1 className="text-3xl font-bold mb-2">{parsed.name || 'Your Name'}</h1>
+              <p className="text-xl text-primary font-semibold mb-4">{parsed.title || ''}</p>
               <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
-                {portfolioData.summary}
+                {parsed.summary || ''}
               </p>
               <div className="flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Mail className="w-4 h-4" />
-                  {portfolioData.email}
+                  {parsed.email || '—'}
                 </div>
                 <div className="flex items-center gap-1">
                   <Phone className="w-4 h-4" />
-                  {portfolioData.phone}
+                  {parsed.phone || '—'}
                 </div>
                 <div className="flex items-center gap-1">
                   <MapPin className="w-4 h-4" />
-                  {portfolioData.location}
+                  {parsed.location || '—'}
                 </div>
               </div>
               <div className="flex justify-center gap-3 mt-4">
@@ -163,11 +208,11 @@ const PortfolioPreview = () => {
               <Card className="p-6">
                 <h2 className="text-2xl font-bold mb-6 text-primary">Experience</h2>
                 <div className="space-y-6">
-                  {portfolioData.experience.map((exp, index) => (
+                  {parsed.experience.map((exp, index) => (
                     <div key={index} className="border-l-2 border-primary/20 pl-4">
                       <h3 className="text-lg font-semibold">{exp.title}</h3>
-                      <p className="text-primary font-medium">{exp.company}</p>
-                      <p className="text-sm text-muted-foreground mb-2">{exp.duration}</p>
+                      {exp.company && <p className="text-primary font-medium">{exp.company}</p>}
+                      {exp.duration && <p className="text-sm text-muted-foreground mb-2">{exp.duration}</p>}
                       <p className="text-muted-foreground">{exp.description}</p>
                     </div>
                   ))}
@@ -178,7 +223,7 @@ const PortfolioPreview = () => {
               <Card className="p-6">
                 <h2 className="text-2xl font-bold mb-6 text-primary">Projects</h2>
                 <div className="grid gap-6">
-                  {portfolioData.projects.map((project, index) => (
+                  {parsed.projects.map((project, index) => (
                     <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                       <h3 className="text-lg font-semibold mb-2">{project.name}</h3>
                       <p className="text-muted-foreground mb-3">{project.description}</p>
@@ -222,7 +267,7 @@ const PortfolioPreview = () => {
               <Card className="p-6">
                 <h2 className="text-xl font-bold mb-4 text-primary">Skills</h2>
                 <div className="flex flex-wrap gap-2">
-                  {portfolioData.skills.map((skill, index) => (
+                  {parsed.skills.map((skill, index) => (
                     <Badge key={index} className="bg-primary/10 text-primary border-primary/20">
                       {skill}
                     </Badge>
@@ -234,11 +279,11 @@ const PortfolioPreview = () => {
               <Card className="p-6">
                 <h2 className="text-xl font-bold mb-4 text-primary">Education</h2>
                 <div className="space-y-4">
-                  {portfolioData.education.map((edu, index) => (
+                  {parsed.education.map((edu, index) => (
                     <div key={index}>
                       <h3 className="font-semibold">{edu.degree}</h3>
-                      <p className="text-primary">{edu.school}</p>
-                      <p className="text-sm text-muted-foreground">{edu.year}</p>
+                      {edu.school && <p className="text-primary">{edu.school}</p>}
+                      {edu.year && <p className="text-sm text-muted-foreground">{edu.year}</p>}
                     </div>
                   ))}
                 </div>
