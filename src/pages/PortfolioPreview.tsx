@@ -1,9 +1,37 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Mail, Phone, MapPin, Download, ExternalLink, Github, Linkedin } from "lucide-react";
+import { Mail, Phone, MapPin, Download, ExternalLink, Github, Linkedin, ArrowLeft, FileText } from "lucide-react";
 
 const PortfolioPreview = () => {
+  const [resumeContent, setResumeContent] = useState<string>('');
+  const [resumeFileName, setResumeFileName] = useState<string>('');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Get the resume content from localStorage
+    const content = localStorage.getItem('resumeContent');
+    const fileName = localStorage.getItem('resumeFileName');
+    
+    console.log("Portfolio Preview - Retrieved content:", content?.substring(0, 100));
+    console.log("Portfolio Preview - Retrieved filename:", fileName);
+    
+    if (content) {
+      setResumeContent(content);
+    }
+    if (fileName) {
+      setResumeFileName(fileName);
+    }
+    
+    // If no content, redirect back to upload
+    if (!content) {
+      console.log("No resume content found, redirecting to upload");
+      navigate('/upload');
+    }
+  }, [navigate]);
+
   // Sample data - in real app, this would come from resume parsing
   const portfolioData = {
     name: "Alex Johnson",
@@ -54,9 +82,22 @@ const PortfolioPreview = () => {
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Portfolio Preview</h1>
-              <p className="text-muted-foreground">Your portfolio is ready!</p>
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/upload')}
+                className="gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Upload
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold">Portfolio Preview</h1>
+                <p className="text-muted-foreground">
+                  {resumeFileName ? `Generated from: ${resumeFileName}` : 'Your portfolio is ready!'}
+                </p>
+              </div>
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="gap-2">
@@ -150,6 +191,29 @@ const PortfolioPreview = () => {
                   ))}
                 </div>
               </Card>
+
+              {/* Resume Content Debug Section */}
+              {resumeContent && (
+                <Card className="p-6">
+                  <h2 className="text-2xl font-bold mb-6 text-primary flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Resume Content
+                  </h2>
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      File: {resumeFileName}
+                    </p>
+                    <div className="bg-background p-4 rounded border max-h-64 overflow-y-auto">
+                      <pre className="text-sm whitespace-pre-wrap text-foreground">
+                        {resumeContent}
+                      </pre>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    * This shows the raw content extracted from your resume. In production, this would be parsed to automatically populate the portfolio sections above.
+                  </p>
+                </Card>
+              )}
             </div>
 
             {/* Sidebar */}

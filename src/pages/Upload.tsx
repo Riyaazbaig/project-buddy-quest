@@ -79,11 +79,70 @@ const UploadPage = () => {
 
     setIsProcessing(true);
     
-    // Simulate processing time
-    setTimeout(() => {
+    try {
+      console.log("Starting file processing for:", file.name);
+      
+      // Read file content
+      const fileContent = await readFileContent(file);
+      console.log("File content read successfully:", fileContent.substring(0, 100) + "...");
+      
+      // Store file content in localStorage for now (later we'll use proper state management)
+      localStorage.setItem('resumeContent', fileContent);
+      localStorage.setItem('resumeFileName', file.name);
+      
+      toast({
+        title: "Resume processed successfully!",
+        description: "Redirecting to your portfolio...",
+      });
+      
+      setTimeout(() => {
+        setIsProcessing(false);
+        navigate('/portfolio-preview');
+      }, 1000);
+      
+    } catch (error) {
+      console.error("Error processing file:", error);
       setIsProcessing(false);
-      navigate('/portfolio-preview');
-    }, 2000);
+      toast({
+        title: "Processing failed",
+        description: "There was an error reading your resume. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const readFileContent = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        const result = event.target?.result;
+        if (typeof result === 'string') {
+          resolve(result);
+        } else {
+          reject(new Error('Failed to read file as text'));
+        }
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('File reading failed'));
+      };
+      
+      // For PDF files, we'll read as text (limited extraction)
+      // For better PDF parsing, we'd need a library like pdf-parse
+      if (file.type === 'application/pdf') {
+        reader.readAsArrayBuffer(file);
+        reader.onload = () => {
+          // Simple PDF text extraction won't work with ArrayBuffer
+          // For now, we'll store the filename and simulate content
+          console.log("PDF detected - using simulated content for demo");
+          resolve(`Resume content from ${file.name}\n\nThis is a demo implementation. In production, we would use a PDF parsing library to extract actual text content from the PDF file.`);
+        };
+      } else {
+        // For Word documents and text files
+        reader.readAsText(file);
+      }
+    });
   };
 
   return (
