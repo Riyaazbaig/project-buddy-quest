@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Phone, MapPin, Download, ExternalLink, Github, Linkedin, ArrowLeft, FileText } from "lucide-react";
+import { parseResume } from "@/utils/resumeParser";
 
 const PortfolioPreview = () => {
   const [resumeContent, setResumeContent] = useState<string>('');
@@ -32,95 +33,8 @@ const PortfolioPreview = () => {
     }
   }, [navigate]);
 
-  // Parse resume content into a simple portfolio structure
-  const extractSection = (text: string, headerRegex: RegExp): string | null => {
-    const re = new RegExp(`(?:^|\\n)\\s*(${headerRegex.source})\\s*:?\\s*[\\n\\r]+([\\s\\S]*?)(?=\\n\\s*[A-Z][A-Za-z .'/&-]{2,}\\s*:|\\n\\s*(?:SKILLS|EXPERIENCE|WORK EXPERIENCE|EDUCATION|PROJECTS|SUMMARY|OBJECTIVE)\\b|$)`, 'i');
-    const match = text.match(re);
-    return match ? match[2].trim() : null;
-  };
+  const parsed = parseResume(resumeContent || '', resumeFileName || '');
 
-  const parseResume = (text: string) => {
-    const lines = text.split(/\r?\n/).map(l => l.trim());
-    const nonEmpty = lines.filter(Boolean);
-    const firstLines = nonEmpty.slice(0, 10).join(' ');
-
-    const name = nonEmpty[0] || 'Your Name';
-    const titleMatch = firstLines.match(/\b(Software|Full[- ]?Stack|Frontend|Backend|Data|Machine Learning|DevOps|Product|UI\/?UX)\b.*\b(Engineer|Developer|Designer|Scientist|Manager)\b/i);
-    const title = titleMatch ? titleMatch[0] : '';
-
-    const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-    const phoneMatch = text.match(/(\+?\d[\d\s\-().]{7,}\d)/);
-    const locationMatch = text.match(/\b[A-Za-z .'-]+,\s*[A-Za-z]{2,}\b/);
-
-    const summary = extractSection(text, /(summary|objective)/i) || nonEmpty.slice(1, 6).join(' ');
-
-    const skillsRaw = extractSection(text, /(skills|technical skills)/i);
-    const skills = skillsRaw
-      ? Array.from(new Set(
-          skillsRaw
-            .replace(/[•\*\u2022]/g, ',')
-            .split(/,|\n|;|\t/)
-            .map(s => s.trim())
-            .filter(s => s.length > 1 && s.length < 40)
-        ))
-      : [];
-
-    const experienceRaw = extractSection(text, /(experience|work experience|professional experience)/i);
-    const experience = experienceRaw
-      ? experienceRaw
-          .split(/\n{2,}/)
-          .slice(0, 5)
-          .map(block => {
-            const [firstLine, ...rest] = block.split('\n');
-            return {
-              title: (firstLine || 'Experience').slice(0, 80),
-              company: '',
-              duration: '',
-              description: rest.join(' ').slice(0, 300),
-            };
-          })
-          .filter(x => x.title || x.description)
-      : [];
-
-    const educationRaw = extractSection(text, /(education|academics)/i);
-    const education = educationRaw
-      ? educationRaw.split(/\n{2,}/).slice(0, 3).map(block => {
-          const l = block.split('\n').filter(Boolean);
-          return {
-            degree: (l[0] || 'Education').slice(0, 80),
-            school: l[1] || '',
-            year: (block.match(/\b(20\d{2}|19\d{2})\b/) || [''])[0],
-          };
-        })
-      : [];
-
-    const projectsRaw = extractSection(text, /(projects?|personal projects?)/i);
-    const projects = projectsRaw
-      ? projectsRaw.split(/\n{2,}/).slice(0, 3).map(block => {
-          const l = block.split('\n');
-          return {
-            name: (l[0] || 'Project').slice(0, 60),
-            description: l.slice(1).join(' ').slice(0, 200),
-            tech: Array.from(new Set((block.match(/\b([A-Za-z+#.]{2,})\b/g) || []).slice(0, 6))),
-          };
-        })
-      : [];
-
-    return {
-      name,
-      title,
-      email: emailMatch?.[0] || '',
-      phone: phoneMatch?.[0] || '',
-      location: locationMatch?.[0] || '',
-      summary,
-      skills,
-      experience,
-      education,
-      projects,
-    };
-  };
-
-  const parsed = parseResume(resumeContent || '');
   return (
     <div className="min-h-screen bg-background">
       {/* Header with Actions */}
